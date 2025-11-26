@@ -1,8 +1,50 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type {
+  AnalysisSession,
+  MemberActivity,
+  HourlyActivity,
+  DailyActivity,
+  MessageType,
+  ImportProgress
+} from '../../src/types/chat'
+
+interface TimeFilter {
+  startTs?: number
+  endTs?: number
+}
+
+interface ChatApi {
+  selectFile: () => Promise<{ filePath?: string; format?: string; error?: string } | null>
+  import: (filePath: string) => Promise<{ success: boolean; sessionId?: string; error?: string }>
+  getSessions: () => Promise<AnalysisSession[]>
+  getSession: (sessionId: string) => Promise<AnalysisSession | null>
+  deleteSession: (sessionId: string) => Promise<boolean>
+  getAvailableYears: (sessionId: string) => Promise<number[]>
+  getMemberActivity: (sessionId: string, filter?: TimeFilter) => Promise<MemberActivity[]>
+  getHourlyActivity: (sessionId: string, filter?: TimeFilter) => Promise<HourlyActivity[]>
+  getDailyActivity: (sessionId: string, filter?: TimeFilter) => Promise<DailyActivity[]>
+  getMessageTypeDistribution: (
+    sessionId: string,
+    filter?: TimeFilter
+  ) => Promise<Array<{ type: MessageType; count: number }>>
+  getTimeRange: (sessionId: string) => Promise<{ start: number; end: number } | null>
+  getDbDirectory: () => Promise<string | null>
+  getSupportedFormats: () => Promise<Array<{ name: string; platform: string }>>
+  onImportProgress: (callback: (progress: ImportProgress) => void) => () => void
+}
+
+interface Api {
+  send: (channel: string, data?: unknown) => void
+  receive: (channel: string, func: (...args: unknown[]) => void) => void
+  removeListener: (channel: string, func: (...args: unknown[]) => void) => void
+}
 
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: unknown
+    api: Api
+    chatApi: ChatApi
   }
 }
+
+export { ChatApi, Api }

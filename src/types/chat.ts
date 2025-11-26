@@ -1,0 +1,168 @@
+/**
+ * ChatLens 聊天数据模型定义
+ * 统一的数据结构，支持多平台聊天记录导入
+ */
+
+// ==================== 枚举定义 ====================
+
+/**
+ * 消息类型枚举
+ */
+export enum MessageType {
+  TEXT = 0,    // 文本消息
+  IMAGE = 1,   // 图片
+  VOICE = 2,   // 语音
+  VIDEO = 3,   // 视频
+  FILE = 4,    // 文件
+  EMOJI = 5,   // 表情包/贴纸
+  SYSTEM = 6,  // 系统消息（入群/退群/撤回等）
+  OTHER = 99   // 其他
+}
+
+/**
+ * 聊天平台枚举
+ */
+export enum ChatPlatform {
+  QQ = 'qq',
+  WECHAT = 'wechat',
+  TELEGRAM = 'telegram',
+  DISCORD = 'discord',
+  UNKNOWN = 'unknown'
+}
+
+/**
+ * 聊天类型枚举
+ */
+export enum ChatType {
+  GROUP = 'group',     // 群聊
+  PRIVATE = 'private'  // 私聊
+}
+
+// ==================== 数据库模型 ====================
+
+/**
+ * 元信息（数据库中存储的格式）
+ */
+export interface DbMeta {
+  name: string           // 群名/对话名
+  platform: ChatPlatform // 平台
+  type: ChatType         // 聊天类型
+  imported_at: number    // 导入时间戳（秒）
+}
+
+/**
+ * 成员（数据库中存储的格式）
+ */
+export interface DbMember {
+  id: number           // 自增ID
+  platform_id: string  // 平台标识（QQ号等）
+  name: string         // 最新昵称
+}
+
+/**
+ * 消息（数据库中存储的格式）
+ */
+export interface DbMessage {
+  id: number           // 自增ID
+  sender_id: number    // FK -> member.id
+  ts: number           // 时间戳（秒）
+  type: MessageType    // 消息类型
+  content: string | null // 纯文本内容
+}
+
+// ==================== Parser 解析结果 ====================
+
+/**
+ * 解析后的成员信息
+ */
+export interface ParsedMember {
+  platformId: string   // 平台标识
+  name: string         // 昵称
+}
+
+/**
+ * 解析后的消息
+ */
+export interface ParsedMessage {
+  senderPlatformId: string  // 发送者平台ID
+  timestamp: number         // 时间戳（秒）
+  type: MessageType         // 消息类型
+  content: string | null    // 内容
+}
+
+/**
+ * Parser 解析结果
+ */
+export interface ParseResult {
+  meta: {
+    name: string
+    platform: ChatPlatform
+    type: ChatType
+  }
+  members: ParsedMember[]
+  messages: ParsedMessage[]
+}
+
+// ==================== 分析结果类型 ====================
+
+/**
+ * 成员活跃度统计
+ */
+export interface MemberActivity {
+  memberId: number
+  platformId: string
+  name: string
+  messageCount: number
+  percentage: number  // 占总消息的百分比
+}
+
+/**
+ * 时段活跃度统计
+ */
+export interface HourlyActivity {
+  hour: number        // 0-23
+  messageCount: number
+}
+
+/**
+ * 日期活跃度统计
+ */
+export interface DailyActivity {
+  date: string        // YYYY-MM-DD
+  messageCount: number
+}
+
+/**
+ * 分析会话信息（用于会话列表展示）
+ */
+export interface AnalysisSession {
+  id: string            // 数据库文件名（不含扩展名）
+  name: string          // 群名/对话名
+  platform: ChatPlatform
+  type: ChatType
+  importedAt: number    // 导入时间戳
+  messageCount: number  // 消息总数
+  memberCount: number   // 成员数
+  dbPath: string        // 数据库文件完整路径
+}
+
+// ==================== IPC 通信类型 ====================
+
+/**
+ * 导入进度回调
+ */
+export interface ImportProgress {
+  stage: 'reading' | 'parsing' | 'saving' | 'done' | 'error'
+  progress: number      // 0-100
+  message?: string
+}
+
+/**
+ * 导入结果
+ */
+export interface ImportResult {
+  success: boolean
+  sessionId?: string    // 成功时返回会话ID
+  error?: string        // 失败时返回错误信息
+}
+

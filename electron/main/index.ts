@@ -63,7 +63,6 @@ class MainProcess {
       minHeight: 720,
       show: false,
       autoHideMenuBar: true,
-      titleBarStyle: 'hidden',
       webPreferences: {
         preload: join(__dirname, '../preload/index.js'),
         sandbox: false,
@@ -98,15 +97,24 @@ class MainProcess {
   // 主应用程序事件
   mainAppEvents() {
     app.whenReady().then(async () => {
+      console.log('[Main] App is ready')
       // 设置Windows应用程序用户模型id
       if (process.platform === 'win32') app.setAppUserModelId(app.getName())
 
       // 创建主窗口
-      this.createWindow()
+      console.log('[Main] Creating window...')
+      await this.createWindow()
+      console.log('[Main] Window created')
+
       // 检查更新逻辑
       checkUpdate(this.mainWindow)
+
       // 引入主进程ipcMain
-      mainIpcMain(this.mainWindow)
+      if (this.mainWindow) {
+        console.log('[Main] Registering IPC handlers...')
+        mainIpcMain(this.mainWindow)
+        console.log('[Main] IPC handlers registered')
+      }
 
       // 开发环境下 F12 打开控制台
       app.on('browser-window-created', (_, window) => {
@@ -130,7 +138,7 @@ class MainProcess {
         if (d.reason == 'crashed') {
           w.reload()
         }
-        fs.appendFile(`./error-log-${+new Date()}.txt`, `${new Date()}渲染进程被杀死${d.reason}\n`)
+        // fs.appendFile(`./error-log-${+new Date()}.txt`, `${new Date()}渲染进程被杀死${d.reason}\n`)
       })
 
       // 自定义协议

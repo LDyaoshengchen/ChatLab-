@@ -1,8 +1,15 @@
-import { ipcMain, app, dialog, clipboard, shell } from 'electron'
+import { ipcMain, app, dialog, clipboard, shell, BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import * as fs from 'fs/promises'
 
-const mainIpcMain = (win) => {
+// 导入数据库和解析器模块
+import * as database from './database'
+import * as parser from './parser'
+
+console.log('[IpcMain] Database and Parser modules imported')
+
+const mainIpcMain = (win: BrowserWindow) => {
+  console.log('[IpcMain] Registering IPC handlers...')
   // ==================== 窗口操作 ====================
   ipcMain.on('window-min', (ev) => {
     ev.preventDefault()
@@ -104,6 +111,242 @@ const mainIpcMain = (win) => {
       console.error('打开目录时出错：', error)
       return false
     }
+  })
+
+  // ==================== 聊天记录导入与分析 ====================
+
+  /**
+   * 选择聊天记录文件
+   */
+  ipcMain.handle('chat:selectFile', async () => {
+    try {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: '选择聊天记录文件',
+        defaultPath: app.getPath('documents'),
+        properties: ['openFile'],
+        filters: [
+          { name: '聊天记录', extensions: ['json', 'txt'] },
+          { name: '所有文件', extensions: ['*'] },
+        ],
+        buttonLabel: '导入',
+      })
+
+      if (canceled || filePaths.length === 0) {
+        return null
+      }
+
+      const filePath = filePaths[0]
+      console.log('[IpcMain] File selected:', filePath)
+
+      // 检测文件格式
+      const format = parser.detectFormat(filePath)
+      console.log('[IpcMain] Detected format:', format)
+      if (!format) {
+        return { error: '无法识别的文件格式' }
+      }
+
+      return { filePath, format }
+    } catch (error) {
+      console.error('[IpcMain] Error selecting file:', error)
+      return { error: String(error) }
+    }
+  })
+
+  /**
+   * 导入聊天记录
+   */
+  ipcMain.handle('chat:import', async (_, filePath: string) => {
+    console.log('[IpcMain] chat:import called with:', filePath)
+
+    try {
+      // 发送进度：开始解析
+      win.webContents.send('chat:importProgress', {
+        stage: 'parsing',
+        progress: 10,
+        message: '正在解析文件...',
+      })
+
+      console.log('[IpcMain] Parsing file...')
+      // 解析文件
+      const parseResult = parser.parseFile(filePath)
+      console.log('[IpcMain] Parse result:', {
+        memberCount: parseResult.members.length,
+        messageCount: parseResult.messages.length,
+      })
+
+      // 发送进度：开始保存
+      win.webContents.send('chat:importProgress', {
+        stage: 'saving',
+        progress: 50,
+        message: `正在保存 ${parseResult.messages.length} 条消息...`,
+      })
+
+      console.log('[IpcMain] Importing to database...')
+      // 导入到数据库
+      const sessionId = database.importData(parseResult)
+      console.log('[IpcMain] Import successful, sessionId:', sessionId)
+
+      // 发送进度：完成
+      win.webContents.send('chat:importProgress', {
+        stage: 'done',
+        progress: 100,
+        message: '导入完成',
+      })
+
+      return { success: true, sessionId }
+    } catch (error) {
+      console.error('[IpcMain] Import failed:', error)
+
+      win.webContents.send('chat:importProgress', {
+        stage: 'error',
+        progress: 0,
+        message: String(error),
+      })
+
+      return { success: false, error: String(error) }
+    }
+  })
+
+  /**
+   * 获取所有分析会话列表
+   */
+  ipcMain.handle('chat:getSessions', async () => {
+    console.log('[IpcMain] chat:getSessions called')
+    try {
+      const sessions = database.getAllSessions()
+      console.log('[IpcMain] Found sessions:', sessions.length)
+      return sessions
+    } catch (error) {
+      console.error('[IpcMain] Error getting sessions:', error)
+      return []
+    }
+  })
+
+  /**
+   * 获取单个会话信息
+   */
+  ipcMain.handle('chat:getSession', async (_, sessionId: string) => {
+    try {
+      return database.getSession(sessionId)
+    } catch (error) {
+      console.error('获取会话信息失败：', error)
+      return null
+    }
+  })
+
+  /**
+   * 删除会话
+   */
+  ipcMain.handle('chat:deleteSession', async (_, sessionId: string) => {
+    try {
+      return database.deleteSession(sessionId)
+    } catch (error) {
+      console.error('删除会话失败：', error)
+      return false
+    }
+  })
+
+  /**
+   * 获取可用年份列表
+   */
+  ipcMain.handle('chat:getAvailableYears', async (_, sessionId: string) => {
+    try {
+      return database.getAvailableYears(sessionId)
+    } catch (error) {
+      console.error('获取可用年份失败：', error)
+      return []
+    }
+  })
+
+  /**
+   * 获取成员活跃度排行
+   */
+  ipcMain.handle(
+    'chat:getMemberActivity',
+    async (_, sessionId: string, filter?: { startTs?: number; endTs?: number }) => {
+      try {
+        return database.getMemberActivity(sessionId, filter)
+      } catch (error) {
+        console.error('获取成员活跃度失败：', error)
+        return []
+      }
+    }
+  )
+
+  /**
+   * 获取每小时活跃度分布
+   */
+  ipcMain.handle(
+    'chat:getHourlyActivity',
+    async (_, sessionId: string, filter?: { startTs?: number; endTs?: number }) => {
+      try {
+        return database.getHourlyActivity(sessionId, filter)
+      } catch (error) {
+        console.error('获取小时活跃度失败：', error)
+        return []
+      }
+    }
+  )
+
+  /**
+   * 获取每日活跃度趋势
+   */
+  ipcMain.handle(
+    'chat:getDailyActivity',
+    async (_, sessionId: string, filter?: { startTs?: number; endTs?: number }) => {
+      try {
+        return database.getDailyActivity(sessionId, filter)
+      } catch (error) {
+        console.error('获取日活跃度失败：', error)
+        return []
+      }
+    }
+  )
+
+  /**
+   * 获取消息类型分布
+   */
+  ipcMain.handle(
+    'chat:getMessageTypeDistribution',
+    async (_, sessionId: string, filter?: { startTs?: number; endTs?: number }) => {
+      try {
+        return database.getMessageTypeDistribution(sessionId, filter)
+      } catch (error) {
+        console.error('获取消息类型分布失败：', error)
+        return []
+      }
+    }
+  )
+
+  /**
+   * 获取时间范围
+   */
+  ipcMain.handle('chat:getTimeRange', async (_, sessionId: string) => {
+    try {
+      return database.getTimeRange(sessionId)
+    } catch (error) {
+      console.error('获取时间范围失败：', error)
+      return null
+    }
+  })
+
+  /**
+   * 获取数据库存储目录
+   */
+  ipcMain.handle('chat:getDbDirectory', async () => {
+    try {
+      return database.getDbDirectory()
+    } catch (error) {
+      console.error('获取数据库目录失败：', error)
+      return null
+    }
+  })
+
+  /**
+   * 获取支持的格式列表
+   */
+  ipcMain.handle('chat:getSupportedFormats', async () => {
+    return parser.getSupportedFormats()
   })
 }
 
