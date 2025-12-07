@@ -2,6 +2,11 @@
 appId: com.chatlab.app
 # 应用程序的产品名称
 productName: ChatLab
+# 发布配置
+publish:
+  provider: github
+  owner: hellodigua
+  repo: ChatLab
 # 构建资源所在的目录
 directories:
   buildResources: build

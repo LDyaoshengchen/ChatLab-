@@ -2,6 +2,10 @@
   "name": "ChatLab",
   "version": "0.1.0",
   "description": "获取你的聊天记录年度分析报告",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hellodigua/ChatLab.git"
+  },
   "author": "",
   "main": "./out/main/index.js",
   "pnpm": {

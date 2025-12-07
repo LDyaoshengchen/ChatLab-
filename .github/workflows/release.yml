@@ -58,6 +58,9 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.zip
+            dist/*.yml
+            dist/*.json
+            dist/*.blockmap
           if-no-files-found: warn
 
   build-win:
@@ -103,6 +106,9 @@ jobs:
           name: ChatLab-win
           path: |
             dist/*.exe
+            dist/*.yml
+            dist/*.json
+            dist/*.blockmap
           if-no-files-found: warn
 
   release:
@@ -132,6 +138,8 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
           name: ChatLab ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
           draft: true
+          repository: hellodigua/ChatLab
+          token: ${{ secrets.GH_TOKEN }}
           files: dist/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

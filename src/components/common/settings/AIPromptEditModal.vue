@@ -152,16 +152,6 @@ ${formData.value.responseRules}`
           <UButton icon="i-heroicons-x-mark" variant="ghost" size="sm" @click="closeModal" />
         </div>
 
-        <!-- 内置预设提示 -->
-        <UAlert v-if="isBuiltIn" color="info" variant="outline" icon="i-heroicons-information-circle" class="mb-4">
-          <template #title>
-            <span class="text-sm">
-              这是内置预设，修改后可点击"重置"恢复默认值。
-              <span v-if="isModified" class="text-amber-600 dark:text-amber-400">（已修改）</span>
-            </span>
-          </template>
-        </UAlert>
-
         <!-- 表单 -->
         <div class="max-h-[500px] space-y-4 overflow-y-auto pr-1">
           <!-- 预设名称 -->
