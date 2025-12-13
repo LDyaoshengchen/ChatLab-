@@ -32,6 +32,10 @@ defineProps<{
           </p>
         </div>
       </div>
+      <!-- 右侧操作区域 -->
+      <div class="flex items-center gap-2">
+        <slot name="actions" />
+      </div>
     </div>
 
     <!-- 额外内容 slot（如 Tabs） -->

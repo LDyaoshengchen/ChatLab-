@@ -240,6 +240,23 @@ export const useChatStore = defineStore(
     // 设置弹窗状态
     const showSettingModal = ref(false)
 
+    // 截屏弹窗状态
+    const showScreenCaptureModal = ref(false)
+    const screenCaptureImage = ref<string | null>(null)
+
+    function openScreenCaptureModal(imageData: string) {
+      screenCaptureImage.value = imageData
+      showScreenCaptureModal.value = true
+    }
+
+    function closeScreenCaptureModal() {
+      showScreenCaptureModal.value = false
+      // 延迟清除图片数据，避免关闭动画时闪烁
+      setTimeout(() => {
+        screenCaptureImage.value = null
+      }, 300)
+    }
+
     // AI 配置更新计数器（用于触发其他组件刷新）
     const aiConfigVersion = ref(0)
 
@@ -464,6 +481,8 @@ export const useChatStore = defineStore(
       isInitialized,
       isSidebarCollapsed,
       showSettingModal,
+      showScreenCaptureModal,
+      screenCaptureImage,
       aiConfigVersion,
       aiGlobalSettings,
       customKeywordTemplates,
@@ -487,6 +506,8 @@ export const useChatStore = defineStore(
       renameSession,
       clearSelection,
       toggleSidebar,
+      openScreenCaptureModal,
+      closeScreenCaptureModal,
       notifyAIConfigChanged,
       updateAIGlobalSettings,
       addCustomKeywordTemplate,

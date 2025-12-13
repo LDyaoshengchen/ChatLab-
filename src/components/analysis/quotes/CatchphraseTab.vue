@@ -46,7 +46,7 @@ watch(
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl p-6">
+  <div class="main-content mx-auto max-w-3xl p-6">
     <!-- 加载中 -->
     <LoadingState v-if="isLoading" text="正在分析口头禅数据..." />
 

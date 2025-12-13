@@ -886,14 +886,33 @@ const cacheApi = {
   openDir: (cacheId: string): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('cache:openDir', cacheId)
   },
+
+  /**
+   * 保存文件到下载目录
+   */
+  saveToDownloads: (
+    filename: string,
+    dataUrl: string
+  ): Promise<{ success: boolean; filePath?: string; error?: string }> => {
+    return ipcRenderer.invoke('cache:saveToDownloads', filename, dataUrl)
+  },
 }
 
-// 扩展 api，添加 dialog 功能
+// 扩展 api，添加 dialog 和 clipboard 功能
 const extendedApi = {
   ...api,
   dialog: {
     showOpenDialog: (options: Electron.OpenDialogOptions): Promise<Electron.OpenDialogReturnValue> => {
       return ipcRenderer.invoke('dialog:showOpenDialog', options)
+    },
+  },
+  clipboard: {
+    /**
+     * 复制图片到系统剪贴板
+     * @param dataUrl 图片的 base64 data URL
+     */
+    copyImage: (dataUrl: string): Promise<{ success: boolean; error?: string }> => {
+      return ipcRenderer.invoke('copyImage', dataUrl)
     },
   },
 }

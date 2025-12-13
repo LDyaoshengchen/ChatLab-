@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
 import MarkdownIt from 'markdown-it'
 import userAvatar from '@/assets/images/momo.png'
 import type { ContentBlock, ToolBlockContent } from '@/composables/useAIChat'
+import CaptureButton from '@/components/common/CaptureButton.vue'
 
 // Props
 const props = defineProps<{
@@ -13,6 +14,8 @@ const props = defineProps<{
   isStreaming?: boolean
   /** AI 消息的混合内容块（按时序排列的文本和工具调用） */
   contentBlocks?: ContentBlock[]
+  /** 是否显示截屏按钮（仅 AI 回复） */
+  showCaptureButton?: boolean
 }>()
 
 // 格式化时间
@@ -261,9 +264,17 @@ function formatToolParams(tool: ToolBlockContent): string {
         </div>
       </template>
 
-      <!-- 时间戳 -->
-      <div class="mt-1 px-1" :class="[isUser ? 'text-right' : '']">
+      <!-- 时间戳 + 操作按钮 -->
+      <div class="mt-1 flex items-center gap-2 px-1" :class="[isUser ? 'flex-row-reverse' : '']">
         <span class="text-xs text-gray-400">{{ formattedTime }}</span>
+        <!-- 截屏按钮（仅 AI 回复显示） -->
+        <CaptureButton
+          v-if="showCaptureButton && !isUser && !isStreaming"
+          tooltip="截屏此问答"
+          size="xs"
+          type="element"
+          target-selector=".qa-pair"
+        />
       </div>
     </div>
   </div>

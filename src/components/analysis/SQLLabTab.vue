@@ -148,7 +148,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-full">
+  <div class="main-content flex h-full">
     <!-- Schema 面板 -->
     <SchemaPanel ref="schemaPanelRef" :session-id="sessionId" @insert-column="handleInsertColumn" />
 

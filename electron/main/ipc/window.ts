@@ -63,7 +63,7 @@ export function registerWindowHandlers(ctx: IpcContext): void {
     event.sender.send('show-message', args)
   })
 
-  // 复制到剪贴板
+  // 复制到剪贴板（文本）
   ipcMain.handle('copyData', async (_, data) => {
     try {
       clipboard.writeText(data)
@@ -71,6 +71,23 @@ export function registerWindowHandlers(ctx: IpcContext): void {
     } catch (error) {
       console.error('复制操作出错：', error)
       return false
+    }
+  })
+
+  // 复制图片到剪贴板（base64 data URL）
+  ipcMain.handle('copyImage', async (_, dataUrl: string) => {
+    try {
+      // 从 data URL 中提取 base64 数据
+      const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+      const imageBuffer = Buffer.from(base64Data, 'base64')
+      // 使用 nativeImage 创建图片并写入剪贴板
+      const { nativeImage } = await import('electron')
+      const image = nativeImage.createFromBuffer(imageBuffer)
+      clipboard.writeImage(image)
+      return { success: true }
+    } catch (error) {
+      console.error('复制图片操作出错：', error)
+      return { success: false, error: String(error) }
     }
   })
 
@@ -126,4 +143,3 @@ export function registerWindowHandlers(ctx: IpcContext): void {
     }
   })
 }
-

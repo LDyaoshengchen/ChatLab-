@@ -46,7 +46,7 @@ const activeSubTab = ref('catchphrase')
         />
 
         <!-- 关键词分析 -->
-        <div v-else-if="activeSubTab === 'keyword'" class="mx-auto max-w-3xl p-6">
+        <div v-else-if="activeSubTab === 'keyword'" class="main-content mx-auto max-w-3xl p-6">
           <KeywordAnalysis :session-id="props.sessionId" :time-filter="props.timeFilter" />
         </div>
       </Transition>

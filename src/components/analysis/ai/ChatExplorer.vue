@@ -7,6 +7,7 @@ import DataSourcePanel from './DataSourcePanel.vue'
 import ChatMessage from './ChatMessage.vue'
 import ChatInput from './ChatInput.vue'
 import { useAIChat } from '@/composables/useAIChat'
+import CaptureButton from '@/components/common/CaptureButton.vue'
 
 // Props
 const props = defineProps<{
@@ -76,6 +77,39 @@ const hasLLMConfig = ref(false)
 const isCheckingConfig = ref(true)
 const messagesContainer = ref<HTMLElement | null>(null)
 const conversationListRef = ref<InstanceType<typeof ConversationList> | null>(null)
+
+// 截屏功能
+const conversationContentRef = ref<HTMLElement | null>(null)
+
+// 将消息分组为 QA 对（用户问题 + AI 回复）
+const qaPairs = computed(() => {
+  const pairs: Array<{
+    user: (typeof messages.value)[0] | null
+    assistant: (typeof messages.value)[0] | null
+    id: string
+  }> = []
+  let currentUser: (typeof messages.value)[0] | null = null
+
+  for (const msg of messages.value) {
+    if (msg.role === 'user') {
+      // 如果已有用户消息但没有对应的 AI 回复，先保存
+      if (currentUser) {
+        pairs.push({ user: currentUser, assistant: null, id: currentUser.id })
+      }
+      currentUser = msg
+    } else if (msg.role === 'assistant') {
+      pairs.push({ user: currentUser, assistant: msg, id: currentUser?.id || msg.id })
+      currentUser = null
+    }
+  }
+
+  // 处理最后一个未配对的用户消息
+  if (currentUser) {
+    pairs.push({ user: currentUser, assistant: null, id: currentUser.id })
+  }
+
+  return pairs
+})
 
 // 检查 LLM 配置
 async function checkLLMConfig() {
@@ -216,7 +250,7 @@ watch(
 </script>
 
 <template>
-  <div class="flex h-full overflow-hidden">
+  <div class="main-content flex h-full overflow-hidden">
     <!-- 左侧：对话记录列表 -->
     <ConversationList
       ref="conversationListRef"
@@ -233,17 +267,45 @@ watch(
       <div class="flex min-w-[480px] flex-1 flex-col overflow-hidden">
         <!-- 消息列表 -->
         <div ref="messagesContainer" class="min-h-0 flex-1 overflow-y-auto p-4">
-          <div class="mx-auto max-w-3xl space-y-4">
-            <template v-for="msg in messages" :key="msg.id">
-              <!-- 聊天消息（支持 contentBlocks 混合渲染） -->
-              <ChatMessage
-                v-if="msg.role === 'user' || msg.content || (msg.contentBlocks && msg.contentBlocks.length > 0)"
-                :role="msg.role"
-                :content="msg.content"
-                :timestamp="msg.timestamp"
-                :is-streaming="msg.isStreaming"
-                :content-blocks="msg.contentBlocks"
+          <div ref="conversationContentRef" class="mx-auto max-w-3xl space-y-4">
+            <!-- 对话截屏按钮 -->
+            <div v-if="qaPairs.length > 0 && !isAIThinking" class="flex justify-end">
+              <CaptureButton
+                tooltip="截屏整个对话"
+                label="截屏对话"
+                size="xs"
+                type="element"
+                :target-element="conversationContentRef"
               />
+            </div>
+
+            <!-- QA 对渲染 -->
+            <template v-for="pair in qaPairs" :key="pair.id">
+              <div class="qa-pair space-y-4">
+                <!-- 用户问题 -->
+                <ChatMessage
+                  v-if="pair.user && (pair.user.role === 'user' || pair.user.content)"
+                  :role="pair.user.role"
+                  :content="pair.user.content"
+                  :timestamp="pair.user.timestamp"
+                  :is-streaming="pair.user.isStreaming"
+                  :content-blocks="pair.user.contentBlocks"
+                />
+                <!-- AI 回复 -->
+                <ChatMessage
+                  v-if="
+                    pair.assistant &&
+                    (pair.assistant.content ||
+                      (pair.assistant.contentBlocks && pair.assistant.contentBlocks.length > 0))
+                  "
+                  :role="pair.assistant.role"
+                  :content="pair.assistant.content"
+                  :timestamp="pair.assistant.timestamp"
+                  :is-streaming="pair.assistant.isStreaming"
+                  :content-blocks="pair.assistant.contentBlocks"
+                  :show-capture-button="!pair.assistant.isStreaming"
+                />
+              </div>
             </template>
 
             <!-- AI 思考中指示器 -->

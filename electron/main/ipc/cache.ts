@@ -87,24 +87,25 @@ export function registerCacheHandlers(_context: IpcContext): void {
       },
       {
         id: 'ai',
-        name: 'AI 数据',
+        name: 'AI 对话数据库',
         description: 'AI 对话历史和配置文件',
         path: path.join(chatLabDir, 'ai'),
         icon: 'i-heroicons-sparkles',
         canClear: false, // 不允许一键清理
       },
+      // 临时文件已有自动清理机制（应用启动时、合并完成后），无需暴露给用户
       {
-        id: 'temp',
-        name: '临时文件',
-        description: '合并功能产生的临时数据库',
-        path: path.join(chatLabDir, 'temp'),
-        icon: 'i-heroicons-clock',
+        id: 'downloads',
+        name: '下载目录',
+        description: '包含截屏文件、分析结果等',
+        path: path.join(chatLabDir, 'downloads'),
+        icon: 'i-heroicons-arrow-down-tray',
         canClear: true, // 可以清理
       },
       {
         id: 'logs',
         name: '日志文件',
-        description: 'AI 调试日志',
+        description: '调试日志和错误日志',
         path: path.join(chatLabDir, 'logs'),
         icon: 'i-heroicons-document-text',
         canClear: true, // 可以清理
@@ -140,9 +141,9 @@ export function registerCacheHandlers(_context: IpcContext): void {
   ipcMain.handle('cache:clear', async (_, cacheId: string) => {
     const chatLabDir = getChatLabDir()
 
-    // 只允许清理 temp 和 logs
+    // 只允许清理 downloads 和 logs（temp 由系统自动清理）
     const allowedDirs: Record<string, string> = {
-      temp: path.join(chatLabDir, 'temp'),
+      downloads: path.join(chatLabDir, 'downloads'),
       logs: path.join(chatLabDir, 'logs'),
     }
 
@@ -178,6 +179,35 @@ export function registerCacheHandlers(_context: IpcContext): void {
   })
 
   /**
+   * 保存文件到下载目录
+   */
+  ipcMain.handle('cache:saveToDownloads', async (_, filename: string, dataUrl: string) => {
+    const chatLabDir = getChatLabDir()
+    const downloadsDir = path.join(chatLabDir, 'downloads')
+
+    try {
+      // 确保目录存在
+      if (!fsSync.existsSync(downloadsDir)) {
+        await fs.mkdir(downloadsDir, { recursive: true })
+      }
+
+      // 从 data URL 中提取 base64 数据
+      const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+
+      // 写入文件
+      const filePath = path.join(downloadsDir, filename)
+      await fs.writeFile(filePath, buffer)
+
+      console.log(`[Cache] Saved file to downloads: ${filePath}`)
+      return { success: true, filePath }
+    } catch (error) {
+      console.error('[Cache] Error saving to downloads:', error)
+      return { success: false, error: String(error) }
+    }
+  })
+
+  /**
    * 在文件管理器中打开缓存目录
    */
   ipcMain.handle('cache:openDir', async (_, cacheId: string) => {
@@ -186,8 +216,8 @@ export function registerCacheHandlers(_context: IpcContext): void {
     const dirPaths: Record<string, string> = {
       base: chatLabDir,
       databases: path.join(chatLabDir, 'databases'),
+      downloads: path.join(chatLabDir, 'downloads'),
       ai: path.join(chatLabDir, 'ai'),
-      temp: path.join(chatLabDir, 'temp'),
       logs: path.join(chatLabDir, 'logs'),
     }
 
@@ -210,4 +240,3 @@ export function registerCacheHandlers(_context: IpcContext): void {
     }
   })
 }
-

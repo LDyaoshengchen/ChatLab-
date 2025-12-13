@@ -81,6 +81,9 @@ interface Api {
   dialog: {
     showOpenDialog: (options: Electron.OpenDialogOptions) => Promise<Electron.OpenDialogReturnValue>
   }
+  clipboard: {
+    copyImage: (dataUrl: string) => Promise<{ success: boolean; error?: string }>
+  }
 }
 
 interface MergeApi {
@@ -315,6 +318,7 @@ interface CacheApi {
   getInfo: () => Promise<CacheInfo>
   clear: (cacheId: string) => Promise<{ success: boolean; error?: string; message?: string }>
   openDir: (cacheId: string) => Promise<{ success: boolean; error?: string }>
+  saveToDownloads: (filename: string, dataUrl: string) => Promise<{ success: boolean; filePath?: string; error?: string }>
 }
 
 declare global {

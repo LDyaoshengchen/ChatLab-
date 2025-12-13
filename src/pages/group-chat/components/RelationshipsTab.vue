@@ -72,7 +72,7 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-6 p-6">
+  <div class="main-content space-y-6 p-6">
     <!-- @ 互动分析模块 -->
     <LoadingState v-if="isLoadingMention" text="正在分析 @ 互动数据..." />
 

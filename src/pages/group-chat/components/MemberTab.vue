@@ -229,7 +229,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-5xl p-6">
+  <div class="main-content max-w-5xl p-6">
     <!-- 页面标题 -->
     <div class="mb-6">
       <div class="flex items-center gap-3">

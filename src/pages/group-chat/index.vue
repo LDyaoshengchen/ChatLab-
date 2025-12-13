@@ -5,6 +5,7 @@ import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
 import type { AnalysisSession, MemberActivity, HourlyActivity, DailyActivity, MessageType } from '@/types/chat'
 import { formatDateRange } from '@/utils'
+import CaptureButton from '@/components/common/CaptureButton.vue'
 import UITabs from '@/components/UI/Tabs.vue'
 import AITab from '@/components/analysis/AITab.vue'
 import OverviewTab from './components/OverviewTab.vue'
@@ -245,6 +246,9 @@ onMounted(() => {
         :description="`${dateRangeText}，${selectedYear ? filteredMemberCount : session.memberCount} 位成员共聊了 ${selectedYear ? filteredMessageCount : session.messageCount} 条消息`"
         icon="i-heroicons-chat-bubble-left-right"
       >
+        <template #actions>
+          <CaptureButton tooltip="截屏当前页面" />
+        </template>
         <!-- Tabs -->
         <div class="mt-4 flex items-center justify-between gap-4">
           <div class="flex shrink-0 items-center gap-1 overflow-x-auto scrollbar-hide">

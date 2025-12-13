@@ -17,6 +17,9 @@ importers:
       '@types/markdown-it':
         specifier: ^14.1.2
         version: 14.1.2
+      '@zumer/snapdom':
+        specifier: ^2.0.1
+        version: 2.0.1
       better-sqlite3:
         specifier: ^12.4.6
         version: 12.4.6
@@ -1208,6 +1211,9 @@ packages:
   '@xmldom/xmldom@0.8.11':
     resolution: {integrity: sha512-cQzWCtO6C8TQiYl1ruKNn2U6Ao4o4WBBcbL61yJl84x+j5sOWWFU9X7DpND8XZG3daDppSsigMdfAIl2upQBRw==}
     engines: {node: '>=10.0.0'}
+
+  '@zumer/snapdom@2.0.1':
+    resolution: {integrity: sha512-78/qbYl2FTv4H6qaXcNfAujfIOSzdvs83NW63VbyC9QA3sqNPfPvhn4xYMO6Gy11hXwJUEhd0z65yKiNzDwy9w==}
 
   abbrev@1.1.1:
     resolution: {integrity: sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==}
@@ -5000,6 +5006,8 @@ snapshots:
       vue: 3.5.25(typescript@5.9.3)
 
   '@xmldom/xmldom@0.8.11': {}
+
+  '@zumer/snapdom@2.0.1': {}
 
   abbrev@1.1.1: {}
 

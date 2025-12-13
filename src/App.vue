@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import Sidebar from '@/components/common/Sidebar.vue'
 import SettingModal from '@/components/common/SettingModal.vue'
+import ScreenCaptureModal from '@/components/common/ScreenCaptureModal.vue'
 
 const chatStore = useChatStore()
 const { isInitialized } = storeToRefs(chatStore)
@@ -43,6 +44,11 @@ onMounted(async () => {
       </template>
     </div>
     <SettingModal v-model:open="chatStore.showSettingModal" @ai-config-saved="chatStore.notifyAIConfigChanged" />
+    <ScreenCaptureModal
+      :open="chatStore.showScreenCaptureModal"
+      :image-data="chatStore.screenCaptureImage"
+      @update:open="(v) => (v ? null : chatStore.closeScreenCaptureModal())"
+    />
   </UApp>
 </template>
 

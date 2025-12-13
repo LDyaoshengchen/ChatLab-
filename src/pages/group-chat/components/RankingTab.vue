@@ -74,7 +74,7 @@ const memberRankData = computed<RankItem[]>(() => {
 <template>
   <div ref="contentRef" class="flex gap-6 p-6">
     <!-- 主内容区 -->
-    <div class="min-w-0 flex-1 px-8 mx-auto max-w-3xl space-y-6">
+    <div class="main-content min-w-0 flex-1 px-8 mx-auto max-w-3xl space-y-6">
       <!-- 赛季大标题 -->
       <div class="mb-8 mt-4">
         <h1
@@ -122,13 +122,11 @@ const memberRankData = computed<RankItem[]>(() => {
       <div id="diving" class="scroll-mt-24">
         <DivingRank :session-id="sessionId" :time-filter="timeFilter" />
       </div>
-
       <!-- 底部间距，确保最后一个锚点可以滚动到顶部 -->
-      <div class="h-48" />
+      <div class="h-48 no-capture" />
     </div>
 
     <!-- 右侧锚点导航 -->
     <PageAnchorsNav :anchors="anchors" :active-anchor="activeAnchor" @click="scrollToAnchor" />
   </div>
 </template>
-

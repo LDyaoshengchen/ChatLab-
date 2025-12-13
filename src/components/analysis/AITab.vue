@@ -80,7 +80,7 @@ defineExpose({
         <!-- 暂未实现的功能 -->
         <div
           v-else-if="['manual', 'mbti', 'cyber-friend', 'campus'].includes(activeSubTab)"
-          class="flex h-full items-center justify-center p-6"
+          class="main-content flex h-full items-center justify-center p-6"
         >
           <div
             class="flex h-full w-full items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/50"

@@ -140,7 +140,7 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-6 p-6">
+  <div class="main-content space-y-6 p-6">
     <!-- 私聊身份卡 -->
     <OverviewIdentityCard
       :session="session"

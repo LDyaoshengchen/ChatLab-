@@ -97,7 +97,7 @@ defineExpose({
       <div>
         <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
           <UIcon name="i-heroicons-folder-open" class="h-4 w-4 text-amber-500" />
-          本地缓存管理
+          本地存储管理
         </h3>
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">管理 ChatLab 在本地存储的数据文件</p>
       </div>
@@ -133,7 +133,7 @@ defineExpose({
               :class="{
                 'bg-green-100 dark:bg-green-900/30': dir.id === 'databases',
                 'bg-violet-100 dark:bg-violet-900/30': dir.id === 'ai',
-                'bg-amber-100 dark:bg-amber-900/30': dir.id === 'temp',
+                'bg-amber-100 dark:bg-amber-900/30': dir.id === 'downloads',
                 'bg-blue-100 dark:bg-blue-900/30': dir.id === 'logs',
               }"
             >
@@ -143,7 +143,7 @@ defineExpose({
                 :class="{
                   'text-green-600 dark:text-green-400': dir.id === 'databases',
                   'text-violet-600 dark:text-violet-400': dir.id === 'ai',
-                  'text-amber-600 dark:text-amber-400': dir.id === 'temp',
+                  'text-amber-600 dark:text-amber-400': dir.id === 'downloads',
                   'text-blue-600 dark:text-blue-400': dir.id === 'logs',
                 }"
               />
@@ -194,9 +194,8 @@ defineExpose({
         <div class="text-xs text-amber-700 dark:text-amber-400">
           <p class="font-medium">注意事项</p>
           <ul class="mt-1 list-inside list-disc space-y-0.5 text-amber-600 dark:text-amber-500">
-            <li>聊天记录数据库和 AI 数据不支持一键清理，请在分析页面逐个删除</li>
-            <li>临时文件和日志文件可以安全清理</li>
             <li>清理后无法恢复，请谨慎操作</li>
+            <li>日志文件排查BUG用的，可以安全清理</li>
           </ul>
         </div>
       </div>
