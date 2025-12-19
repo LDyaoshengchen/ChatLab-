@@ -36,6 +36,75 @@ function ensureDir(dir: string): void {
 }
 
 /**
+ * 从字符串中提取 JSON 对象（处理嵌套和转义）
+ */
+function extractJsonObject(content: string, key: string): string | null {
+  const searchStr = `"${key}":`
+  const startIdx = content.indexOf(searchStr)
+  if (startIdx === -1) return null
+
+  let i = startIdx + searchStr.length
+  while (i < content.length && /\s/.test(content[i])) i++
+
+  if (content[i] !== '{') return null
+
+  let braceDepth = 0
+  let inString = false
+  let escape = false
+  const objStart = i
+
+  for (; i < content.length; i++) {
+    const char = content[i]
+
+    if (escape) {
+      escape = false
+      continue
+    }
+
+    if (char === '\\' && inString) {
+      escape = true
+      continue
+    }
+
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+
+    if (!inString) {
+      if (char === '{') braceDepth++
+      if (char === '}') {
+        braceDepth--
+        if (braceDepth === 0) {
+          return content.slice(objStart, i + 1)
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * 从文件末尾读取 avatars 对象
+ */
+function readAvatarsFromFile(filePath: string): string | null {
+  try {
+    const stats = fs.statSync(filePath)
+    const tailSize = Math.min(stats.size, 5000000) // 最多读取 5MB
+    const fd = fs.openSync(filePath, 'r')
+    const buffer = Buffer.alloc(tailSize)
+    fs.readSync(fd, buffer, 0, tailSize, stats.size - tailSize)
+    fs.closeSync(fd)
+
+    const tailContent = buffer.toString('utf-8')
+    return extractJsonObject(tailContent, 'avatars')
+  } catch {
+    return null
+  }
+}
+
+/**
  * QQ JSON 消息的精简结构
  */
 interface SlimQQMessage {
@@ -59,7 +128,6 @@ interface SlimQQMessage {
   isRecalled?: boolean
   system?: boolean
   isSystemMessage?: boolean
-  // V4 新增：保留 rawMessage 中的名字字段
   rawMessage?: {
     sendNickName?: string
     sendMemberName?: string
@@ -147,6 +215,9 @@ async function preprocessQQJson(inputPath: string, onProgress?: (progress: Parse
 
   onProgress?.(createProgress('parsing', 0, totalBytes, 0, '预处理：读取文件头...'))
 
+  // 先从原文件读取 avatars（因为它在文件末尾，消息处理时可能无法访问）
+  const avatarsStr = readAvatarsFromFile(inputPath)
+
   return new Promise((resolve, reject) => {
     const headChunks: string[] = []
     let headSize = 0
@@ -188,8 +259,6 @@ async function preprocessQQJson(inputPath: string, onProgress?: (progress: Parse
         // 忽略
       }
 
-      // 解析 statistics 字段（完整保留，用于聊天类型判断）
-      // statistics 是嵌套对象，后面紧跟 "messages" 字段
       try {
         const statisticsMatch = headContent.match(/"statistics"\s*:\s*(\{[\s\S]*?\})\s*,\s*"messages"/)
         if (statisticsMatch) {
@@ -210,7 +279,7 @@ async function preprocessQQJson(inputPath: string, onProgress?: (progress: Parse
 
       const header = { metadata, chatInfo, statistics, messages: [] }
       const headerJson = JSON.stringify(header)
-      // 移除最后的 ]} 保留 [，结果如 {"metadata":...,"chatInfo":...,"statistics":...,"messages":[
+      // 移除最后的 ]} 保留 [
       writeStream.write(headerJson.slice(0, -2) + '\n')
 
       let isFirstMessage = true
@@ -244,7 +313,16 @@ async function preprocessQQJson(inputPath: string, onProgress?: (progress: Parse
       })
 
       pipeline.on('end', () => {
-        writeStream.write('\n]}')
+        // 关闭 messages 数组
+        writeStream.write('\n]')
+
+        // 添加 avatars 对象（如果存在）
+        if (avatarsStr) {
+          writeStream.write(',"avatars":' + avatarsStr)
+        }
+
+        // 关闭 JSON 对象
+        writeStream.write('}')
         writeStream.end()
 
         writeStream.on('finish', () => {

@@ -3,15 +3,16 @@
  * 适配项目: https://github.com/shuakami/qq-chat-exporter
  * 版本: V4.x (2024年12月更新)
  *
- * 特征：
- * - 时间戳使用 ISO 字符串格式（如 "2022-10-29T06:42:53.000Z"）
- * - metadata.version 为 "4.x.x"
- * - rawMessage 中包含 sendNickName（QQ昵称）、sendMemberName（群昵称）
+ * 文件结构：
+ * - metadata: 元数据
+ * - chatInfo: 聊天信息（包含群头像 avatar）
+ * - statistics: 统计信息
+ * - messages: 消息数组
+ * - avatars: 用户头像（在 messages 之后）
  *
  * 名字字段说明：
  * - sendNickName: QQ原始昵称（始终存在）
- * - sendMemberName: 群昵称（可选，用户未设置时不存在）
- * - sendRemarkName: 导出者的备注名（不使用）
+ * - sendMemberName: 群昵称（可选）
  *
  * 显示名优先级: sendMemberName > sendNickName
  */
@@ -35,17 +36,6 @@ import type {
 } from '../types'
 import { getFileSize, createProgress, readFileHeadBytes, parseTimestamp, isValidYear } from '../utils'
 
-// ==================== 辅助函数 ====================
-
-/**
- * 从文件名提取群名
- */
-function extractNameFromFilePath(filePath: string): string {
-  const basename = path.basename(filePath)
-  const name = basename.replace(/\.json$/i, '')
-  return name || '未知群聊'
-}
-
 // ==================== 特征定义 ====================
 
 export const feature: FormatFeature = {
@@ -55,25 +45,22 @@ export const feature: FormatFeature = {
   priority: 10,
   extensions: ['.json'],
   signatures: {
-    // 文件头签名已足够唯一识别，无需检查 messages（可能超出 8KB 检测范围）
     head: [/QQChatExporter V4/, /"version"\s*:\s*"4\./],
     requiredFields: ['metadata', 'chatInfo'],
   },
 }
 
-// ==================== 消息结构 ====================
+// ==================== 类型定义 ====================
 
 interface V4RawMessage {
   senderUin?: string
   senderUid?: string
-  sendNickName?: string // QQ原始昵称
-  sendMemberName?: string // 群昵称
-  msgTime?: string // 秒级时间戳字符串
+  sendNickName?: string
+  sendMemberName?: string
 }
 
 interface V4Message {
-  messageId?: string
-  timestamp: string // ISO 格式
+  timestamp: string
   sender: {
     uid?: string
     uin?: string
@@ -84,22 +71,109 @@ interface V4Message {
   isRecalled?: boolean
   content: {
     text: string
-    html?: string
-    raw?: string
     resources?: Array<{ type: string }>
-    elements?: Array<{ type: string }>
     emojis?: Array<{ type: string }>
   }
   rawMessage?: V4RawMessage
 }
 
-// ==================== 成员信息追踪 ====================
-
 interface MemberInfo {
   platformId: string
-  accountName: string // 账号名称（QQ原始昵称 sendNickName）
-  groupNickname: string | undefined // 群昵称（sendMemberName，可为空）
-  avatar: string | undefined // 头像（base64 Data URL）
+  accountName: string
+  groupNickname: string | undefined
+  avatar: string | undefined
+}
+
+interface ChatInfo {
+  name: string
+  type: string
+  avatar?: string
+}
+
+// ==================== 辅助函数 ====================
+
+/**
+ * 从字符串中提取 JSON 对象（处理嵌套和转义）
+ */
+function extractJsonObject(content: string, key: string): string | null {
+  const searchStr = `"${key}":`
+  const startIdx = content.indexOf(searchStr)
+  if (startIdx === -1) return null
+
+  let i = startIdx + searchStr.length
+  while (i < content.length && /\s/.test(content[i])) i++
+
+  if (content[i] !== '{') return null
+
+  let braceDepth = 0
+  let inString = false
+  let escape = false
+  const objStart = i
+
+  for (; i < content.length; i++) {
+    const char = content[i]
+
+    if (escape) {
+      escape = false
+      continue
+    }
+
+    if (char === '\\' && inString) {
+      escape = true
+      continue
+    }
+
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+
+    if (!inString) {
+      if (char === '{') braceDepth++
+      if (char === '}') {
+        braceDepth--
+        if (braceDepth === 0) {
+          return content.slice(objStart, i + 1)
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * 从文件名提取名称
+ */
+function extractNameFromFilePath(filePath: string): string {
+  const basename = path.basename(filePath)
+  return basename.replace(/\.json$/i, '') || '未知群聊'
+}
+
+/**
+ * 计算 senders 数量以判断聊天类型
+ */
+function countSenders(content: string): number {
+  const sendersStart = content.indexOf('"senders"')
+  if (sendersStart === -1) return 0
+
+  const arrayStart = content.indexOf('[', sendersStart)
+  if (arrayStart === -1 || arrayStart - sendersStart > 20) return 0
+
+  // 找到匹配的 ]
+  let depth = 1
+  let i = arrayStart + 1
+  while (i < content.length && depth > 0) {
+    if (content[i] === '[') depth++
+    else if (content[i] === ']') depth--
+    i++
+  }
+
+  if (depth !== 0) return 0
+
+  const sendersContent = content.slice(arrayStart + 1, i - 1)
+  const uidMatches = sendersContent.match(/"uid"\s*:/g)
+  return uidMatches ? uidMatches.length : 0
 }
 
 // ==================== 消息类型转换 ====================
@@ -109,13 +183,10 @@ function convertMessageType(
   content: V4Message['content'],
   isRecalled?: boolean
 ): MessageType {
-  // 撤回消息
-  if (isRecalled) {
-    return MessageType.RECALL
-  }
+  if (isRecalled) return MessageType.RECALL
 
   // 检查资源类型
-  if (content.resources && content.resources.length > 0) {
+  if (content.resources?.length) {
     const resourceType = content.resources[0].type
     switch (resourceType) {
       case 'image':
@@ -132,69 +203,25 @@ function convertMessageType(
     }
   }
 
-  // 检查 emojis 字段
-  if (content.emojis && content.emojis.length > 0) {
-    return MessageType.EMOJI
-  }
+  if (content.emojis?.length) return MessageType.EMOJI
 
-  // 根据文本内容判断特殊消息类型
+  // 根据文本内容判断
   const text = content.text?.trim() || ''
-
-  // 红包消息
-  if (text.includes('QQ红包') || text.includes('发出了红包') || text === '[红包]') {
-    return MessageType.RED_PACKET
-  }
-
-  // 转账消息
-  if (text.includes('转账') || text === '[转账]') {
-    return MessageType.TRANSFER
-  }
-
-  // 拍一拍/戳一戳
-  if (text.includes('拍了拍') || text.includes('戳了戳') || text === '[拍一拍]') {
-    return MessageType.POKE
-  }
-
-  // 通话消息
-  if (text.includes('语音通话') || text.includes('视频通话') || text.includes('通话时长')) {
-    return MessageType.CALL
-  }
-
-  // 分享消息
-  if (text === '[分享]' || text === '[音乐]' || text === '[小程序]') {
-    return MessageType.SHARE
-  }
-
-  // 链接/卡片消息
-  if (text === '[链接]' || text === '[卡片消息]') {
-    return MessageType.LINK
-  }
-
-  // 位置消息
-  if (text === '[位置]' || text === '[地理位置]') {
-    return MessageType.LOCATION
-  }
-
-  // 转发消息
-  if (text === '[转发]' || text === '[聊天记录]') {
-    return MessageType.FORWARD
-  }
+  if (text.includes('QQ红包') || text.includes('发出了红包') || text === '[红包]') return MessageType.RED_PACKET
+  if (text.includes('转账') || text === '[转账]') return MessageType.TRANSFER
+  if (text.includes('拍了拍') || text.includes('戳了戳') || text === '[拍一拍]') return MessageType.POKE
+  if (text.includes('语音通话') || text.includes('视频通话') || text.includes('通话时长')) return MessageType.CALL
+  if (text === '[分享]' || text === '[音乐]' || text === '[小程序]') return MessageType.SHARE
+  if (text === '[链接]' || text === '[卡片消息]') return MessageType.LINK
+  if (text === '[位置]' || text === '[地理位置]') return MessageType.LOCATION
+  if (text === '[转发]' || text === '[聊天记录]') return MessageType.FORWARD
 
   // 根据 messageType 判断
-  switch (messageType) {
-    case 1:
-      return MessageType.TEXT
-    case 2:
-      return MessageType.TEXT // 普通消息
-    case 3:
-      return MessageType.IMAGE
-    case 7:
-      return MessageType.VIDEO
-    case 9:
-      return MessageType.REPLY // 回复消息
-    default:
-      return MessageType.TEXT
-  }
+  if (messageType === 3) return MessageType.IMAGE
+  if (messageType === 7) return MessageType.VIDEO
+  if (messageType === 9) return MessageType.REPLY
+
+  return MessageType.TEXT
 }
 
 // ==================== 解析器实现 ====================
@@ -211,130 +238,121 @@ async function* parseV4(options: ParseOptions): AsyncGenerator<ParseEvent, void,
   yield { type: 'progress', data: initialProgress }
   onProgress?.(initialProgress)
 
-  // 读取文件头获取 meta 信息
-  const headContent = readFileHeadBytes(filePath, 100000)
+  // 读取文件头获取 meta 信息（增加到 500KB 以包含 chatInfo.avatar）
+  const headContent = readFileHeadBytes(filePath, 500000)
 
-  // 解析 chatInfo（仅用于获取群名，type 字段不可靠）
-  let chatInfo = { name: '未知群聊', type: 'group' as const }
+  // 解析 chatInfo（包含群头像）
+  let chatInfo: ChatInfo = { name: '未知群聊', type: 'group' }
   try {
-    const chatInfoMatch = headContent.match(/"chatInfo"\s*:\s*(\{[^}]+\})/)
-    if (chatInfoMatch) {
-      chatInfo = JSON.parse(chatInfoMatch[1])
+    const chatInfoStr = extractJsonObject(headContent, 'chatInfo')
+    if (chatInfoStr) {
+      chatInfo = JSON.parse(chatInfoStr)
     }
   } catch {
     // 使用默认值
   }
 
-  // 解析 statistics.senders 来判断聊天类型
-  // 私聊只有 2 个发送者，群聊有多个发送者
-  let sendersCount = 0
-  try {
-    // 尝试多种正则匹配 senders 数组
-    // 方式1: senders 后面是 resources 字段
-    let sendersMatch = headContent.match(/"senders"\s*:\s*\[([\s\S]*?)\]\s*,\s*"resources"/)
-    // 方式2: senders 后面是 } 结束 statistics 对象
-    if (!sendersMatch) {
-      sendersMatch = headContent.match(/"senders"\s*:\s*\[([\s\S]*?)\]\s*\}/)
-    }
-    // 方式3: 更宽松的匹配，找到 senders 数组的开始和结束
-    if (!sendersMatch) {
-      const sendersStart = headContent.indexOf('"senders"')
-      if (sendersStart !== -1) {
-        const arrayStart = headContent.indexOf('[', sendersStart)
-        if (arrayStart !== -1 && arrayStart - sendersStart < 20) {
-          // 找到匹配的 ]
-          let depth = 1
-          let i = arrayStart + 1
-          while (i < headContent.length && depth > 0) {
-            if (headContent[i] === '[') depth++
-            else if (headContent[i] === ']') depth--
-            i++
-          }
-          if (depth === 0) {
-            const sendersContent = headContent.slice(arrayStart + 1, i - 1)
-            const uidMatches = sendersContent.match(/"uid"\s*:/g)
-            sendersCount = uidMatches ? uidMatches.length : 0
-          }
-        }
-      }
-    } else {
-      // 计算 senders 数组中 uid 出现的次数来确定发送者数量
-      const sendersContent = sendersMatch[1]
-      const uidMatches = sendersContent.match(/"uid"\s*:/g)
-      sendersCount = uidMatches ? uidMatches.length : 0
-    }
-  } catch {
-    // senders 解析失败
+  // 根据 senders 数量判断聊天类型
+  const sendersCount = countSenders(headContent)
+  const chatType = sendersCount > 2 ? ChatType.GROUP : sendersCount > 0 ? ChatType.PRIVATE : ChatType.GROUP
+
+  // 发送 meta（包含群头像）
+  const meta: ParsedMeta = {
+    name: chatInfo.name || extractNameFromFilePath(filePath),
+    platform: ChatPlatform.QQ,
+    type: chatType,
+    groupAvatar: chatInfo.avatar, // 从 chatInfo.avatar 提取群头像
   }
+  yield { type: 'meta', data: meta }
 
-  // 根据发送者数量判断聊天类型：私聊 <= 2 人，群聊 > 2 人
-  // 注意：chatInfo.type 字段不可靠（始终返回 private），不作为 fallback
-  // 如果无法获取 senders 数量，默认为群聊（群聊是更常见的使用场景）
-  const chatType = sendersCount > 0 ? (sendersCount > 2 ? ChatType.GROUP : ChatType.PRIVATE) : ChatType.GROUP // 默认为群聊
+  // 收集成员和消息
+  const memberMap = new Map<string, MemberInfo>()
+  const messageBatch: ParsedMessage[] = []
 
-  // 解析 avatars 对象（头像）
-  // avatars 格式：{ "uin1": "data:image/jpeg;base64,...", "uin2": "..." }
-  // 注意：base64 字符串很长，需要特殊处理匹配花括号
+  // 流式解析消息
+  await new Promise<void>((resolve, reject) => {
+    const readStream = fs.createReadStream(filePath, { encoding: 'utf-8' })
+
+    readStream.on('data', (chunk: string | Buffer) => {
+      bytesRead += typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.length
+    })
+
+    const pipeline = chain([readStream, parser(), pick({ filter: /^messages\.\d+$/ }), streamValues()])
+
+    pipeline.on('data', ({ value }: { value: V4Message }) => {
+      // 获取 platformId
+      const platformId =
+        value.sender.uin || value.sender.uid || value.rawMessage?.senderUin || value.rawMessage?.senderUid
+      if (!platformId) return
+
+      // 获取名字信息
+      const raw = value.rawMessage
+      const accountName = raw?.sendNickName || value.sender.name || platformId
+      const groupNickname = raw?.sendMemberName || undefined
+
+      // 更新成员信息
+      const existingMember = memberMap.get(platformId)
+      if (!existingMember) {
+        memberMap.set(platformId, { platformId, accountName, groupNickname, avatar: undefined })
+      } else {
+        existingMember.accountName = accountName
+        if (groupNickname) existingMember.groupNickname = groupNickname
+      }
+
+      // 解析时间戳
+      const timestamp = parseTimestamp(value.timestamp)
+      if (timestamp === null || !isValidYear(timestamp)) return
+
+      // 消息类型
+      const type = value.isSystemMessage
+        ? MessageType.SYSTEM
+        : convertMessageType(value.messageType, value.content, value.isRecalled)
+
+      // 文本内容
+      let textContent = value.content?.text || ''
+      if (value.isRecalled) textContent = '[已撤回] ' + textContent
+
+      messageBatch.push({
+        senderPlatformId: platformId,
+        senderAccountName: accountName,
+        senderGroupNickname: groupNickname,
+        timestamp,
+        type,
+        content: textContent || null,
+      })
+
+      messagesProcessed++
+      if (messagesProcessed % batchSize === 0) {
+        const progress = createProgress(
+          'parsing',
+          bytesRead,
+          totalBytes,
+          messagesProcessed,
+          `已处理 ${messagesProcessed} 条消息...`
+        )
+        onProgress?.(progress)
+      }
+    })
+
+    pipeline.on('end', resolve)
+    pipeline.on('error', reject)
+  })
+
+  // 消息解析完成后，读取文件末尾的 avatars 对象
   const avatarsMap = new Map<string, string>()
-
-  /**
-   * 从字符串中提取 avatars 对象内容
-   * 正确处理 JSON 字符串中的花括号匹配（考虑字符串内的转义字符）
-   */
-  function extractAvatarsObject(content: string): string | null {
-    const searchStr = '"avatars":'
-    const startIdx = content.indexOf(searchStr)
-    if (startIdx === -1) return null
-
-    let i = startIdx + searchStr.length
-    // 跳过空白字符
-    while (i < content.length && /\s/.test(content[i])) i++
-
-    if (content[i] !== '{') return null
-
-    // 从 { 开始匹配
-    let braceDepth = 0
-    let inString = false
-    let escape = false
-    const objStart = i
-
-    for (; i < content.length; i++) {
-      const char = content[i]
-
-      if (escape) {
-        escape = false
-        continue
-      }
-
-      if (char === '\\' && inString) {
-        escape = true
-        continue
-      }
-
-      if (char === '"') {
-        inString = !inString
-        continue
-      }
-
-      if (!inString) {
-        if (char === '{') braceDepth++
-        if (char === '}') {
-          braceDepth--
-          if (braceDepth === 0) {
-            return content.slice(objStart, i + 1)
-          }
-        }
-      }
-    }
-
-    return null
-  }
-
   try {
-    // 先尝试从文件头解析（适用于成员较少的聊天）
-    const avatarsContent = extractAvatarsObject(headContent)
-    if (avatarsContent) {
-      const avatarsObj = JSON.parse(avatarsContent) as Record<string, string>
+    // 读取文件末尾（avatars 通常在最后）
+    const stats = fs.statSync(filePath)
+    const tailSize = Math.min(stats.size, 5000000) // 最多读取 5MB
+    const fd = fs.openSync(filePath, 'r')
+    const buffer = Buffer.alloc(tailSize)
+    fs.readSync(fd, buffer, 0, tailSize, stats.size - tailSize)
+    fs.closeSync(fd)
+
+    const tailContent = buffer.toString('utf-8')
+    const avatarsStr = extractJsonObject(tailContent, 'avatars')
+    if (avatarsStr) {
+      const avatarsObj = JSON.parse(avatarsStr) as Record<string, string>
       for (const [uin, avatar] of Object.entries(avatarsObj)) {
         if (avatar && typeof avatar === 'string' && avatar.startsWith('data:image/')) {
           avatarsMap.set(uin, avatar)
@@ -345,207 +363,11 @@ async function* parseV4(options: ParseOptions): AsyncGenerator<ParseEvent, void,
     // avatars 解析失败，继续不带头像
   }
 
-  // 如果文件头没有完整的 avatars（可能超出 100KB），尝试流式读取
-  if (avatarsMap.size === 0) {
-    try {
-      await new Promise<void>((resolve) => {
-        const avatarStream = fs.createReadStream(filePath, { encoding: 'utf-8' })
-
-        let avatarsContent = ''
-        let inAvatars = false
-        let braceDepth = 0
-        let inString = false
-        let escape = false
-
-        avatarStream.on('data', (chunk: string | Buffer) => {
-          const str = typeof chunk === 'string' ? chunk : chunk.toString()
-
-          for (let i = 0; i < str.length; i++) {
-            const char = str[i]
-
-            if (!inAvatars) {
-              // 查找 "avatars": 的位置
-              const searchStr = '"avatars":'
-              if (str.slice(i, i + searchStr.length) === searchStr) {
-                inAvatars = true
-                // 跳过 "avatars": 和可能的空白
-                i += searchStr.length - 1
-                continue
-              }
-            } else {
-              // 开始收集 avatars 对象内容
-              avatarsContent += char
-
-              if (escape) {
-                escape = false
-                continue
-              }
-
-              if (char === '\\' && inString) {
-                escape = true
-                continue
-              }
-
-              if (char === '"') {
-                inString = !inString
-                continue
-              }
-
-              if (!inString) {
-                if (char === '{') braceDepth++
-                if (char === '}') {
-                  braceDepth--
-                  if (braceDepth === 0) {
-                    // avatars 对象结束
-                    avatarStream.destroy()
-                    return
-                  }
-                }
-              }
-            }
-          }
-        })
-
-        avatarStream.on('close', () => {
-          if (avatarsContent) {
-            try {
-              const avatarsObj = JSON.parse(avatarsContent) as Record<string, string>
-              for (const [uin, avatar] of Object.entries(avatarsObj)) {
-                if (avatar && typeof avatar === 'string' && avatar.startsWith('data:image/')) {
-                  avatarsMap.set(uin, avatar)
-                }
-              }
-            } catch {
-              // 解析失败
-            }
-          }
-          resolve()
-        })
-
-        avatarStream.on('error', () => resolve())
-      })
-    } catch {
-      // 流式解析失败，继续不带头像
-    }
+  // 将头像关联到成员
+  for (const member of memberMap.values()) {
+    const avatar = avatarsMap.get(member.platformId)
+    if (avatar) member.avatar = avatar
   }
-
-  // 发送 meta
-  const meta: ParsedMeta = {
-    name: chatInfo.name === '未知群聊' ? extractNameFromFilePath(filePath) : chatInfo.name,
-    platform: ChatPlatform.QQ,
-    type: chatType,
-  }
-  yield { type: 'meta', data: meta }
-
-  // 收集成员和消息
-  const memberMap = new Map<string, MemberInfo>()
-  let messageBatch: ParsedMessage[] = []
-
-  // 流式解析
-  await new Promise<void>((resolve, reject) => {
-    const readStream = fs.createReadStream(filePath, { encoding: 'utf-8' })
-
-    readStream.on('data', (chunk: string | Buffer) => {
-      bytesRead += typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.length
-    })
-
-    const pipeline = chain([readStream, parser(), pick({ filter: /^messages\.\d+$/ }), streamValues()])
-
-    const processMessage = (msg: V4Message): ParsedMessage | null => {
-      // 获取 platformId：优先使用 uin（QQ号），fallback 到 uid
-      const platformId = msg.sender.uin || msg.sender.uid || msg.rawMessage?.senderUin || msg.rawMessage?.senderUid
-      if (!platformId) return null
-
-      // 从 rawMessage 获取名字信息
-      const raw = msg.rawMessage
-      const accountName = raw?.sendNickName || msg.sender.name || platformId // QQ 原始昵称
-      const groupNickname = raw?.sendMemberName || undefined // 群昵称（可为空）
-
-      // 获取头像（通过 uin 查找）
-      const avatar = avatarsMap.get(platformId)
-
-      // 更新成员信息（保留最新的名字）
-      const existingMember = memberMap.get(platformId)
-      if (!existingMember) {
-        memberMap.set(platformId, {
-          platformId,
-          accountName,
-          groupNickname,
-          avatar,
-        })
-      } else {
-        // 更新为最新的名字
-        existingMember.accountName = accountName
-        if (groupNickname) {
-          existingMember.groupNickname = groupNickname
-        }
-        // 头像使用最新的（覆盖更新）
-        if (avatar) {
-          existingMember.avatar = avatar
-        }
-      }
-
-      // 解析时间戳
-      const timestamp = parseTimestamp(msg.timestamp)
-      if (timestamp === null || !isValidYear(timestamp)) return null
-
-      // 消息类型
-      const type = msg.isSystemMessage
-        ? MessageType.SYSTEM
-        : convertMessageType(msg.messageType, msg.content, msg.isRecalled)
-
-      // 文本内容
-      let textContent = msg.content?.text || ''
-      if (msg.isRecalled) {
-        textContent = '[已撤回] ' + textContent
-      }
-
-      return {
-        senderPlatformId: platformId,
-        senderAccountName: accountName,
-        senderGroupNickname: groupNickname,
-        timestamp,
-        type,
-        content: textContent || null,
-      }
-    }
-
-    // 用于收集批次的临时数组
-    const batchCollector: ParsedMessage[] = []
-
-    pipeline.on('data', ({ value }: { value: V4Message }) => {
-      const parsed = processMessage(value)
-      if (parsed) {
-        batchCollector.push(parsed)
-        messagesProcessed++
-
-        // 达到批次大小
-        if (batchCollector.length >= batchSize) {
-          messageBatch.push(...batchCollector)
-          batchCollector.length = 0
-
-          const progress = createProgress(
-            'parsing',
-            bytesRead,
-            totalBytes,
-            messagesProcessed,
-            `已处理 ${messagesProcessed} 条消息...`
-          )
-          onProgress?.(progress)
-        }
-      }
-    })
-
-    pipeline.on('end', () => {
-      // 收集剩余消息
-      if (batchCollector.length > 0) {
-        messageBatch.push(...batchCollector)
-      }
-      resolve()
-    })
-
-    pipeline.on('error', reject)
-  })
 
   // 发送成员
   const members: ParsedMember[] = Array.from(memberMap.values()).map((m) => ({
@@ -573,19 +395,15 @@ async function* parseV4(options: ParseOptions): AsyncGenerator<ParseEvent, void,
   }
 }
 
-// ==================== 导出解析器 ====================
+// ==================== 导出 ====================
 
 export const parser_: Parser = {
   feature,
   parse: parseV4,
 }
 
-// ==================== 导出预处理器 ====================
-
 import { qqPreprocessor } from './shuakami-qq-preprocessor'
 export const preprocessor = qqPreprocessor
-
-// ==================== 导出格式模块 ====================
 
 const module_: FormatModule = {
   feature,
