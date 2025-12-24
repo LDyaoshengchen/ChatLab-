@@ -118,6 +118,7 @@ export interface DbMeta {
   imported_at: number // 导入时间戳（秒）
   group_id: string | null // 群ID（群聊类型有值，私聊为空）
   group_avatar: string | null // 群头像（base64 Data URL）
+  owner_id: string | null // 所有者/导出者的 platformId
 }
 
 /**
@@ -179,6 +180,7 @@ export interface ParseResult {
     type: ChatType
     groupId?: string // 群ID（群聊类型有值）
     groupAvatar?: string // 群头像（base64 Data URL）
+    ownerId?: string // 所有者/导出者的 platformId
   }
   members: ParsedMember[]
   messages: ParsedMessage[]
@@ -200,6 +202,7 @@ export interface AnalysisSession {
   dbPath: string // 数据库文件完整路径
   groupId: string | null // 群ID（群聊类型有值，私聊为空）
   groupAvatar: string | null // 群头像（base64 Data URL）
+  ownerId: string | null // 所有者/导出者的 platformId
 }
 
 /**
@@ -223,4 +226,3 @@ export interface ImportResult {
   sessionId?: string // 成功时返回会话ID
   error?: string // 失败时返回错误信息
 }
-

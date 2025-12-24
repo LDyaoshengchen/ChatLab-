@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import type { MemberWithStats } from '@/types/analysis'
+import OwnerSelector from '@/components/analysis/member/OwnerSelector.vue'
 
 // Props
 const props = defineProps<{
@@ -17,16 +18,16 @@ const members = ref<MemberWithStats[]>([])
 const isLoading = ref(false)
 const searchQuery = ref('')
 
+// 删除确认状态
+const deletingMember = ref<MemberWithStats | null>(null)
+const isDeleting = ref(false)
+
 // 分页配置
 const pageSize = 20
 const currentPage = ref(1)
 
 // 排序配置
 const sortOrder = ref<'desc' | 'asc'>('desc') // desc = 发言多在前
-
-// 删除确认状态
-const deletingMember = ref<MemberWithStats | null>(null)
-const isDeleting = ref(false)
 
 // 正在保存别名的成员ID（用于显示加载状态）
 const savingAliasesId = ref<number | null>(null)
@@ -187,6 +188,9 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Owner配置 -->
+    <OwnerSelector class="mb-6" :session-id="sessionId" :members="members" :is-loading="isLoading" chat-type="group" />
 
     <!-- 搜索框 -->
     <div class="mb-4">

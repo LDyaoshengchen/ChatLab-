@@ -36,6 +36,7 @@ export interface ChatLabMeta {
   sources?: MergeSource[] // 合并来源（可选）
   groupId?: string // 群ID（可选，仅群聊）
   groupAvatar?: string // 群头像（base64 Data URL，可选）
+  ownerId?: string // 所有者/导出者的 platformId（可选）
 }
 
 /**
@@ -181,4 +182,3 @@ export interface ChatRecordMessage {
   timestamp: number
   type: number
 }
-

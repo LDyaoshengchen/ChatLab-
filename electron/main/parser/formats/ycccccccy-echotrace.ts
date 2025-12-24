@@ -357,19 +357,41 @@ async function* parseEchotrace(options: ParseOptions): AsyncGenerator<ParseEvent
   // 提取群头像（从 avatars 中获取群ID对应的头像）
   const groupAvatar = groupId ? avatarsMap.get(groupId) : undefined
 
-  // 发送 meta
+  // 快速扫描获取 ownerId（通过 isSend === 1 推断）
+  let ownerId: string | undefined
+  try {
+    await new Promise<void>((resolve) => {
+      const scanStream = fs.createReadStream(filePath, { encoding: 'utf-8' })
+      const scanPipeline = chain([scanStream, parser(), pick({ filter: /^messages\.\d+$/ }), streamValues()])
+
+      scanPipeline.on('data', ({ value }: { value: EchotraceMessage }) => {
+        if (value.isSend === 1 && value.senderUsername && !value.senderUsername.endsWith('@chatroom')) {
+          ownerId = value.senderUsername
+          scanStream.destroy() // 找到后立即停止扫描
+        }
+      })
+
+      scanStream.on('close', () => resolve())
+      scanPipeline.on('end', () => resolve())
+      scanPipeline.on('error', () => resolve())
+    })
+  } catch {
+    // 扫描失败，ownerId 保持 undefined
+  }
+
+  // 发送 meta（包含推断的 ownerId）
   const meta: ParsedMeta = {
     name: chatName,
     platform: KNOWN_PLATFORMS.WECHAT,
     type: chatType,
     groupId,
     groupAvatar,
+    ownerId,
   }
   yield { type: 'meta', data: meta }
 
   // 收集成员和消息
   const memberMap = new Map<string, MemberInfo>()
-  let messageBatch: ParsedMessage[] = []
 
   // 流式解析
   await new Promise<void>((resolve, reject) => {
@@ -518,4 +540,3 @@ const module_: FormatModule = {
 }
 
 export default module_
-

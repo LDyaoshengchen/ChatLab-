@@ -18,15 +18,7 @@ import {
   type ParsedMessage,
 } from '../../parser'
 import { getDbDir } from '../core'
-import {
-  initPerfLog,
-  logPerf,
-  logPerfDetail,
-  resetPerfLog,
-  logInfo,
-  logError,
-  logSummary,
-} from '../core'
+import { initPerfLog, logPerf, logPerfDetail, resetPerfLog, logInfo, logError, logSummary } from '../core'
 
 /** 流式导入结果 */
 export interface StreamImportResult {
@@ -75,7 +67,9 @@ function createTempDatabase(dbPath: string): Database.Database {
       platform TEXT NOT NULL,
       type TEXT NOT NULL,
       group_id TEXT,
-      group_avatar TEXT
+      group_avatar TEXT,
+      owner_id TEXT,
+      schema_version INTEGER DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS member (
@@ -154,7 +148,9 @@ function createDatabaseWithoutIndexes(sessionId: string): Database.Database {
       type TEXT NOT NULL,
       imported_at INTEGER NOT NULL,
       group_id TEXT,
-      group_avatar TEXT
+      group_avatar TEXT,
+      owner_id TEXT,
+      schema_version INTEGER DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS member (
@@ -264,7 +260,7 @@ export async function streamImport(filePath: string, requestId: string): Promise
 
   // 准备语句
   const insertMeta = db.prepare(`
-    INSERT INTO meta (name, platform, type, imported_at, group_id, group_avatar) VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO meta (name, platform, type, imported_at, group_id, group_avatar, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)
   `)
   const insertMember = db.prepare(`
     INSERT OR IGNORE INTO member (platform_id, account_name, group_nickname, avatar) VALUES (?, ?, ?, ?)
@@ -386,7 +382,8 @@ export async function streamImport(filePath: string, requestId: string): Promise
             meta.type,
             Math.floor(Date.now() / 1000),
             meta.groupId || null,
-            meta.groupAvatar || null
+            meta.groupAvatar || null,
+            meta.ownerId || null
           )
           metaInserted = true
         }
@@ -394,7 +391,12 @@ export async function streamImport(filePath: string, requestId: string): Promise
 
       onMembers: (members: ParsedMember[]) => {
         for (const member of members) {
-          insertMember.run(member.platformId, member.accountName || null, member.groupNickname || null, member.avatar || null)
+          insertMember.run(
+            member.platformId,
+            member.accountName || null,
+            member.groupNickname || null,
+            member.avatar || null
+          )
           const row = getMemberId.get(member.platformId) as { id: number } | undefined
           if (row) {
             memberIdMap.set(member.platformId, row.id)
@@ -730,7 +732,9 @@ export async function streamParseFileInfo(filePath: string, requestId: string): 
   const db = createTempDatabase(tempDbPath)
 
   // 准备语句
-  const insertMeta = db.prepare('INSERT INTO meta (name, platform, type, group_id, group_avatar) VALUES (?, ?, ?, ?, ?)')
+  const insertMeta = db.prepare(
+    'INSERT INTO meta (name, platform, type, group_id, group_avatar, owner_id) VALUES (?, ?, ?, ?, ?, ?)'
+  )
   const insertMember = db.prepare(
     'INSERT OR IGNORE INTO member (platform_id, account_name, group_nickname, avatar) VALUES (?, ?, ?, ?)'
   )
@@ -764,7 +768,8 @@ export async function streamParseFileInfo(filePath: string, requestId: string): 
             parsedMeta.platform,
             parsedMeta.type,
             parsedMeta.groupId || null,
-            parsedMeta.groupAvatar || null
+            parsedMeta.groupAvatar || null,
+            parsedMeta.ownerId || null
           )
           metaInserted = true
         }

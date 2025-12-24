@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import type { MemberWithStats } from '@/types/analysis'
+import OwnerSelector from '@/components/analysis/member/OwnerSelector.vue'
 
 // Props
 const props = defineProps<{
@@ -103,6 +104,15 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Owner配置 -->
+    <OwnerSelector
+      class="mb-6"
+      :session-id="sessionId"
+      :members="members"
+      :is-loading="isLoading"
+      chat-type="private"
+    />
 
     <!-- 加载状态 -->
     <div v-if="isLoading" class="flex h-60 items-center justify-center">
